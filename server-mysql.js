@@ -53,6 +53,51 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: false, message: err.message });
 });
 
+// ==================== BASE ROUTES ====================
+
+// Base URL - API Info
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Student Fee Tracker API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      login: '/api/auth/login',
+      students: '/api/students',
+      payments: '/api/payments'
+    }
+  });
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API info
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Student Fee Tracker API',
+    endpoints: {
+      auth: '/api/auth/*',
+      users: '/api/users/*',
+      students: '/api/students/*',
+      payments: '/api/payments/*',
+      feeStructures: '/api/fee-structures/*'
+    }
+  });
+});
+
+// Then all your other routes below...
+
 // ==================== STATISTICS ENDPOINTS ====================
 
 app.get('/api/statistics', asyncHandler(async (req, res) => {
