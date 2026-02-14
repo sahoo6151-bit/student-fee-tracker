@@ -1650,7 +1650,7 @@ app.use((err, req, res, next) => {
 
 // ==================== SERVER START ====================
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 const startServer = async () => {
   try {
