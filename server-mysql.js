@@ -53,6 +53,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: false, message: err.message });
 });
 
+
 // ==================== BASE ROUTES ====================
 
 // Base URL - API Info
@@ -1659,6 +1660,28 @@ app.get('/api/fee-structures/statistics/summary', asyncHandler(async (req, res) 
     }
   });
 }));
+
+const path = require('path');
+
+// ==================== SERVE STATIC FILES ====================
+
+// Serve static files from 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Root route - serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Catch-all for SPA routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    // API route not found
+    return next();
+  }
+  // Serve index.html for all other routes
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ==================== ERROR HANDLING ====================
 
