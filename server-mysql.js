@@ -37,6 +37,14 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+  );
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
