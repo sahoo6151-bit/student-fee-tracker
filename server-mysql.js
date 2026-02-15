@@ -48,30 +48,509 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((err, req, res, next) => {
-  logger.error(`ERROR → ${req.method} ${req.url} - ${err.stack}`);
-  res.status(500).json({ error: false, message: err.message });
-});
+// ==================== AUTHENTICATION MIDDLEWARE ====================
 
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-// ==================== BASE ROUTES ====================
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied. No token provided.'
+    });
+  }
 
-// Base URL - API Info
-app.get('/', (req, res) => {
+  try {
+    const verified = jwt.verify(token, JWT_SECRET);
+    req.user = verified;
+    next();
+  } catch (error) {
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid or expired token'
+    });
+  }
+};
+
+// Middleware to check user role
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden. Insufficient permissions.'
+      });
+    }
+
+    next();
+  };
+};
+
+// ==================== AUTHENTICATION ROUTES ====================
+
+// Login endpoint
+app.post('/api/auth/login', asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username and password are required'
+    });
+  }
+
+  // Find user by username or email
+  const query = `
+    SELECT id, username, email, password_hash, full_name, role, is_active
+    FROM users
+    WHERE (username = ? OR email = ?) AND is_active = true
+  `;
+  
+  const users = await mysqlQuery(query, [username, username]);
+
+  if (users.length === 0) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid credentials'
+    });
+  }
+
+  const user = users[0];
+
+  // Verify password
+  const validPassword = await bcrypt.compare(password, user.password_hash);
+
+  if (!validPassword) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid credentials'
+    });
+  }
+
+  // Generate JWT token
+  const token = jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRE }
+  );
+
+  // Return user data and token
   res.json({
     success: true,
-    message: 'Student Fee Tracker API',
-    version: '1.0.0',
-    status: 'running',
-    endpoints: {
-      health: '/health',
-      api: '/api',
-      login: '/api/auth/login',
-      students: '/api/students',
-      payments: '/api/payments'
+    message: 'Login successful',
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      role: user.role
     }
   });
+  logger.info(res.json.message);
+}));
+
+// Get current user profile
+app.get('/api/auth/me', authenticateToken, asyncHandler(async (req, res) => {
+  const query = `
+    SELECT id, username, email, full_name, role, created_at
+    FROM users
+    WHERE id = ?
+  `;
+  
+  const users = await mysqlQuery(query, [req.user.id]);
+
+  if (users.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: users[0]
+  });
+}));
+
+// Change password
+app.post('/api/auth/change-password', authenticateToken, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Current password and new password are required'
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be at least 6 characters long'
+    });
+  }
+
+  // Get current password hash
+  const query = 'SELECT password_hash FROM users WHERE id = ?';
+  const users = await mysqlQuery(query, [req.user.id]);
+
+  if (users.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Verify current password
+  const validPassword = await bcrypt.compare(currentPassword, users[0].password_hash);
+
+  if (!validPassword) {
+    return res.status(401).json({
+      success: false,
+      message: 'Current password is incorrect'
+    });
+  }
+
+  // Hash new password
+  const salt = await bcrypt.genSalt(10);
+  const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+  // Update password
+  const updateQuery = 'UPDATE users SET password_hash = ? WHERE id = ?';
+  await mysqlQuery(updateQuery, [newPasswordHash, req.user.id]);
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully'
+  });
+}));
+
+// Logout (client-side only, just clear token)
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
 });
+
+// Register new user (admin only)
+app.post('/api/auth/register', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  const { username, email, password, fullName, role } = req.body;
+
+  if (!username || !email || !password || !fullName) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required'
+    });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long'
+    });
+  }
+
+  // Check if username or email already exists
+  const checkQuery = 'SELECT id FROM users WHERE username = ? OR email = ?';
+  const existing = await mysqlQuery(checkQuery, [username, email]);
+
+  if (existing.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username or email already exists'
+    });
+  }
+
+  // Hash password
+  const salt = await bcrypt.genSalt(10);
+  const passwordHash = await bcrypt.hash(password, salt);
+
+  // Insert new user
+  const insertQuery = `
+    INSERT INTO users (username, email, password_hash, full_name, role)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  const result = await mysqlQuery(insertQuery, [
+    username,
+    email,
+    passwordHash,
+    fullName,
+    role || 'staff'
+  ]);
+
+  res.status(201).json({
+    success: true,
+    message: 'User registered successfully',
+    userId: result.insertId
+  });
+}));
+
+// Check if username exists (public endpoint for registration validation)
+app.get('/api/auth/check-username/:username', asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  const query = 'SELECT id FROM users WHERE username = ?';
+  const results = await mysqlQuery(query, [username]);
+
+  res.json({
+    success: true,
+    exists: results.length > 0,
+    available: results.length === 0
+  });
+}));
+
+// Check if email exists (public endpoint for registration validation)
+app.get('/api/auth/check-email/:email', asyncHandler(async (req, res) => {
+  const { email } = req.params;
+
+  const query = 'SELECT id FROM users WHERE email = ?';
+  const results = await mysqlQuery(query, [email]);
+
+  res.json({
+    success: true,
+    exists: results.length > 0,
+    available: results.length === 0
+  });
+}));
+
+// Get all users (admin only)
+app.get('/api/users', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  const query = `
+    SELECT id, username, email, full_name, role, is_active, created_at
+    FROM users
+    ORDER BY created_at DESC
+  `;
+  
+  const users = await mysqlQuery(query);
+
+  res.json({
+    success: true,
+    count: users.length,
+    data: users
+  });
+}));
+
+// Update user (admin only)
+app.put('/api/users/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  const { fullName, role, isActive } = req.body;
+
+  const updates = [];
+  const params = [];
+
+  if (fullName) {
+    updates.push('full_name = ?');
+    params.push(fullName);
+  }
+  if (role) {
+    updates.push('role = ?');
+    params.push(role);
+  }
+  if (isActive !== undefined) {
+    updates.push('is_active = ?');
+    params.push(isActive);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No fields to update'
+    });
+  }
+
+  params.push(req.params.id);
+
+  const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+  await mysqlQuery(query, params);
+
+  res.json({
+    success: true,
+    message: 'User updated successfully'
+  });
+}));
+
+// Delete user (admin only)
+app.delete('/api/users/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  // Prevent deleting yourself
+  if (parseInt(req.params.id) === req.user.id) {
+    return res.status(400).json({
+      success: false,
+      message: 'You cannot delete your own account'
+    });
+  }
+
+  const query = 'DELETE FROM users WHERE id = ?';
+  await mysqlQuery(query, [req.params.id]);
+
+  res.json({
+    success: true,
+    message: 'User deleted successfully'
+  });
+}));
+
+// ==================== PROTECT EXISTING ROUTES (OPTIONAL) ====================
+
+// Example: Protect student creation (only authenticated users can create students)
+// Replace the existing POST /api/students route with this:
+/*
+app.post('/api/students', authenticateToken, asyncHandler(async (req, res) => {
+  // ... existing student creation code ...
+}));
+*/
+
+// Example: Only admins can delete students
+/*
+app.delete('/api/students/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  // ... existing delete code ...
+}));
+*/
+
+// Export middleware for use in other files
+module.exports = {
+  authenticateToken,
+  authorize
+};
+
+// ==================== USER DETAILS ENDPOINTS ====================
+
+// Get user by username (requires authentication)
+app.get('/api/users/username/:username', authenticateToken, asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  const query = `
+    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
+    FROM users
+    WHERE username = ?
+  `;
+  
+  const results = await mysqlQuery(query, [username]);
+
+  if (results.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Check if requesting own data or if admin
+  const requestingUser = req.user;
+  const targetUser = results[0];
+
+  // Allow if:
+  // 1. User is admin, OR
+  // 2. User is requesting their own data
+  if (requestingUser.role !== 'admin' && requestingUser.username !== username) {
+    return res.status(403).json({
+      success: false,
+      message: 'You can only view your own profile or must be admin'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: targetUser
+  });
+}));
+
+// Get user by email (requires authentication, admin only)
+app.get('/api/users/email/:email', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  const { email } = req.params;
+
+  const query = `
+    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
+    FROM users
+    WHERE email = ?
+  `;
+  
+  const results = await mysqlQuery(query, [email]);
+
+  if (results.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: results[0]
+  });
+}));
+
+// Get user by ID (requires authentication)
+app.get('/api/users/:id', authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const query = `
+    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
+    FROM users
+    WHERE id = ?
+  `;
+  
+  const results = await mysqlQuery(query, [id]);
+
+  if (results.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Check permissions
+  const requestingUser = req.user;
+  const targetUser = results[0];
+
+  if (requestingUser.role !== 'admin' && requestingUser.id !== parseInt(id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'You can only view your own profile or must be admin'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: targetUser
+  });
+}));
+
+// Search users by name or username (admin only)
+app.get('/api/users/search/:query', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
+  const { query: searchQuery } = req.params;
+
+  const query = `
+    SELECT id, username, email, full_name, role, is_active, created_at
+    FROM users
+    WHERE username LIKE ? OR full_name LIKE ? OR email LIKE ?
+    ORDER BY username
+    LIMIT 20
+  `;
+  
+  const searchTerm = `%${searchQuery}%`;
+  const results = await mysqlQuery(query, [searchTerm, searchTerm, searchTerm]);
+
+  res.json({
+    success: true,
+    count: results.length,
+    data: results
+  });
+}));
+
+// ==================== BASE ROUTES ====================
 
 // Health check
 app.get('/health', (req, res) => {
@@ -87,17 +566,17 @@ app.get('/api', (req, res) => {
   res.json({
     success: true,
     message: 'Student Fee Tracker API',
+    version: '1.0.0',
     endpoints: {
       auth: '/api/auth/*',
       users: '/api/users/*',
       students: '/api/students/*',
       payments: '/api/payments/*',
-      feeStructures: '/api/fee-structures/*'
+      feeStructures: '/api/fee-structures/*',
+      statistics: '/api/statistics/*'
     }
   });
 });
-
-// Then all your other routes below...
 
 // ==================== STATISTICS ENDPOINTS ====================
 
@@ -624,72 +1103,6 @@ app.delete('/api/payments/:id', asyncHandler(async (req, res) => {
   });
 }));
 
-// ==================== FEE STRUCTURE ENDPOINTS ====================
-
-app.get('/api/fee-structures', asyncHandler(async (req, res) => {
-  const { academicYear, class: className } = req.query;
-  
-  let query = 'SELECT * FROM fee_structures WHERE is_active = true';
-  const params = [];
-
-  if (academicYear) {
-    query += ' AND academic_year = ?';
-    params.push(academicYear);
-  }
-
-  if (className) {
-    query += ' AND class = ?';
-    params.push(className);
-  }
-
-  query += ' ORDER BY class';
-
-  const results = await mysqlQuery(query, params);
-
-  res.json({
-    success: true,
-    count: results.length,
-    data: results
-  });
-}));
-
-app.post('/api/fee-structures', asyncHandler(async (req, res) => {
-  const {
-    class: className,
-    academicYear,
-    tuitionFee,
-    admissionFee,
-    examFee,
-    libraryFee,
-    sportsFee,
-    labFee,
-    transportFee,
-    otherFees
-  } = req.body;
-
-  const query = `
-    INSERT INTO fee_structures (
-      class, academic_year, tuition_fee, admission_fee, exam_fee,
-      library_fee, sports_fee, lab_fee, transport_fee, other_fees
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const params = [
-    className, academicYear, tuitionFee || 0, admissionFee || 0,
-    examFee || 0, libraryFee || 0, sportsFee || 0, labFee || 0,
-    transportFee || 0, otherFees || 0
-  ];
-
-  const result = await mysqlQuery(query, params);
-  const newFeeStructure = await mysqlQuery('SELECT * FROM fee_structures WHERE id = ?', [result.insertId]);
-
-  res.status(201).json({
-    success: true,
-    message: 'Fee structure created successfully',
-    data: newFeeStructure[0]
-  });
-}));
-
 // ==================== REPORTS ENDPOINTS ====================
 
 app.get('/api/reports/defaulters', asyncHandler(async (req, res) => {
@@ -756,508 +1169,6 @@ app.get('/api/reports/payment-history', asyncHandler(async (req, res) => {
     success: true,
     count: results.length,
     totalAmount,
-    data: results
-  });
-}));
-
-// ==================== AUTHENTICATION MIDDLEWARE ====================
-
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Access denied. No token provided.'
-    });
-  }
-
-  try {
-    const verified = jwt.verify(token, JWT_SECRET);
-    req.user = verified;
-    next();
-  } catch (error) {
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid or expired token'
-    });
-  }
-};
-
-// Middleware to check user role
-const authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized'
-      });
-    }
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden. Insufficient permissions.'
-      });
-    }
-
-    next();
-  };
-};
-
-// ==================== AUTHENTICATION ROUTES ====================
-
-// Login endpoint
-app.post('/api/auth/login', asyncHandler(async (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Username and password are required'
-    });
-  }
-
-  // Find user by username or email
-  const query = `
-    SELECT id, username, email, password_hash, full_name, role, is_active
-    FROM users
-    WHERE (username = ? OR email = ?) AND is_active = true
-  `;
-  
-  const users = await mysqlQuery(query, [username, username]);
-
-  if (users.length === 0) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid credentials'
-    });
-  }
-
-  const user = users[0];
-
-  // Verify password
-  const validPassword = await bcrypt.compare(password, user.password_hash);
-
-  if (!validPassword) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid credentials'
-    });
-  }
-
-  // Generate JWT token
-  const token = jwt.sign(
-    {
-      id: user.id,
-      username: user.username,
-      role: user.role
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRE }
-  );
-
-  // Return user data and token
-  res.json({
-    success: true,
-    message: 'Login successful',
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      fullName: user.full_name,
-      role: user.role
-    }
-  });
-  logger.info(res.json.message);
-}));
-
-// Get current user profile
-app.get('/api/auth/me', authenticateToken, asyncHandler(async (req, res) => {
-  const query = `
-    SELECT id, username, email, full_name, role, created_at
-    FROM users
-    WHERE id = ?
-  `;
-  
-  const users = await mysqlQuery(query, [req.user.id]);
-
-  if (users.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: users[0]
-  });
-}));
-
-// Change password
-app.post('/api/auth/change-password', authenticateToken, asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({
-      success: false,
-      message: 'Current password and new password are required'
-    });
-  }
-
-  if (newPassword.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: 'New password must be at least 6 characters long'
-    });
-  }
-
-  // Get current password hash
-  const query = 'SELECT password_hash FROM users WHERE id = ?';
-  const users = await mysqlQuery(query, [req.user.id]);
-
-  if (users.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  // Verify current password
-  const validPassword = await bcrypt.compare(currentPassword, users[0].password_hash);
-
-  if (!validPassword) {
-    return res.status(401).json({
-      success: false,
-      message: 'Current password is incorrect'
-    });
-  }
-
-  // Hash new password
-  const salt = await bcrypt.genSalt(10);
-  const newPasswordHash = await bcrypt.hash(newPassword, salt);
-
-  // Update password
-  const updateQuery = 'UPDATE users SET password_hash = ? WHERE id = ?';
-  await mysqlQuery(updateQuery, [newPasswordHash, req.user.id]);
-
-  res.json({
-    success: true,
-    message: 'Password changed successfully'
-  });
-}));
-
-// Logout (client-side only, just clear token)
-app.post('/api/auth/logout', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Logged out successfully'
-  });
-});
-
-// Register new user (admin only)
-app.post('/api/auth/register', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  const { username, email, password, fullName, role } = req.body;
-
-  if (!username || !email || !password || !fullName) {
-    return res.status(400).json({
-      success: false,
-      message: 'All fields are required'
-    });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password must be at least 6 characters long'
-    });
-  }
-
-  // Check if username or email already exists
-  const checkQuery = 'SELECT id FROM users WHERE username = ? OR email = ?';
-  const existing = await mysqlQuery(checkQuery, [username, email]);
-
-  if (existing.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Username or email already exists'
-    });
-  }
-
-  // Hash password
-  const salt = await bcrypt.genSalt(10);
-  const passwordHash = await bcrypt.hash(password, salt);
-
-  // Insert new user
-  const insertQuery = `
-    INSERT INTO users (username, email, password_hash, full_name, role)
-    VALUES (?, ?, ?, ?, ?)
-  `;
-
-  const result = await mysqlQuery(insertQuery, [
-    username,
-    email,
-    passwordHash,
-    fullName,
-    role || 'staff'
-  ]);
-
-  res.status(201).json({
-    success: true,
-    message: 'User registered successfully',
-    userId: result.insertId
-  });
-}));
-
-// Check if username exists (public endpoint for registration validation)
-app.get('/api/auth/check-username/:username', asyncHandler(async (req, res) => {
-  const { username } = req.params;
-
-  const query = 'SELECT id FROM users WHERE username = ?';
-  const results = await mysqlQuery(query, [username]);
-
-  res.json({
-    success: true,
-    exists: results.length > 0,
-    available: results.length === 0
-  });
-}));
-
-// Check if email exists (public endpoint for registration validation)
-app.get('/api/auth/check-email/:email', asyncHandler(async (req, res) => {
-  const { email } = req.params;
-
-  const query = 'SELECT id FROM users WHERE email = ?';
-  const results = await mysqlQuery(query, [email]);
-
-  res.json({
-    success: true,
-    exists: results.length > 0,
-    available: results.length === 0
-  });
-}));
-
-// Get all users (admin only)
-app.get('/api/users', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  const query = `
-    SELECT id, username, email, full_name, role, is_active, created_at
-    FROM users
-    ORDER BY created_at DESC
-  `;
-  
-  const users = await mysqlQuery(query);
-
-  res.json({
-    success: true,
-    count: users.length,
-    data: users
-  });
-}));
-
-// Update user (admin only)
-app.put('/api/users/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  const { fullName, role, isActive } = req.body;
-
-  const updates = [];
-  const params = [];
-
-  if (fullName) {
-    updates.push('full_name = ?');
-    params.push(fullName);
-  }
-  if (role) {
-    updates.push('role = ?');
-    params.push(role);
-  }
-  if (isActive !== undefined) {
-    updates.push('is_active = ?');
-    params.push(isActive);
-  }
-
-  if (updates.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'No fields to update'
-    });
-  }
-
-  params.push(req.params.id);
-
-  const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-  await mysqlQuery(query, params);
-
-  res.json({
-    success: true,
-    message: 'User updated successfully'
-  });
-}));
-
-// Delete user (admin only)
-app.delete('/api/users/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  // Prevent deleting yourself
-  if (parseInt(req.params.id) === req.user.id) {
-    return res.status(400).json({
-      success: false,
-      message: 'You cannot delete your own account'
-    });
-  }
-
-  const query = 'DELETE FROM users WHERE id = ?';
-  await mysqlQuery(query, [req.params.id]);
-
-  res.json({
-    success: true,
-    message: 'User deleted successfully'
-  });
-}));
-
-// ==================== PROTECT EXISTING ROUTES (OPTIONAL) ====================
-
-// Example: Protect student creation (only authenticated users can create students)
-// Replace the existing POST /api/students route with this:
-/*
-app.post('/api/students', authenticateToken, asyncHandler(async (req, res) => {
-  // ... existing student creation code ...
-}));
-*/
-
-// Example: Only admins can delete students
-/*
-app.delete('/api/students/:id', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  // ... existing delete code ...
-}));
-*/
-
-// Export middleware for use in other files
-module.exports = {
-  authenticateToken,
-  authorize
-};
-
-// ==================== USER DETAILS ENDPOINTS ====================
-
-// Get user by username (requires authentication)
-app.get('/api/users/username/:username', authenticateToken, asyncHandler(async (req, res) => {
-  const { username } = req.params;
-
-  const query = `
-    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
-    FROM users
-    WHERE username = ?
-  `;
-  
-  const results = await mysqlQuery(query, [username]);
-
-  if (results.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  // Check if requesting own data or if admin
-  const requestingUser = req.user;
-  const targetUser = results[0];
-
-  // Allow if:
-  // 1. User is admin, OR
-  // 2. User is requesting their own data
-  if (requestingUser.role !== 'admin' && requestingUser.username !== username) {
-    return res.status(403).json({
-      success: false,
-      message: 'You can only view your own profile or must be admin'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: targetUser
-  });
-}));
-
-// Get user by email (requires authentication, admin only)
-app.get('/api/users/email/:email', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  const { email } = req.params;
-
-  const query = `
-    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
-    FROM users
-    WHERE email = ?
-  `;
-  
-  const results = await mysqlQuery(query, [email]);
-
-  if (results.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: results[0]
-  });
-}));
-
-// Get user by ID (requires authentication)
-app.get('/api/users/:id', authenticateToken, asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const query = `
-    SELECT id, username, email, full_name, role, is_active, created_at, updated_at
-    FROM users
-    WHERE id = ?
-  `;
-  
-  const results = await mysqlQuery(query, [id]);
-
-  if (results.length === 0) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    });
-  }
-
-  // Check permissions
-  const requestingUser = req.user;
-  const targetUser = results[0];
-
-  if (requestingUser.role !== 'admin' && requestingUser.id !== parseInt(id)) {
-    return res.status(403).json({
-      success: false,
-      message: 'You can only view your own profile or must be admin'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: targetUser
-  });
-}));
-
-// Search users by name or username (admin only)
-app.get('/api/users/search/:query', authenticateToken, authorize('admin'), asyncHandler(async (req, res) => {
-  const { query: searchQuery } = req.params;
-
-  const query = `
-    SELECT id, username, email, full_name, role, is_active, created_at
-    FROM users
-    WHERE username LIKE ? OR full_name LIKE ? OR email LIKE ?
-    ORDER BY username
-    LIMIT 20
-  `;
-  
-  const searchTerm = `%${searchQuery}%`;
-  const results = await mysqlQuery(query, [searchTerm, searchTerm, searchTerm]);
-
-  res.json({
-    success: true,
-    count: results.length,
     data: results
   });
 }));
