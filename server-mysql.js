@@ -16,7 +16,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'b3ad834a909842e9f6d755b5fa8c2a261b
 const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors({
   origin: true,  // Allow same-origin requests
   credentials: true
