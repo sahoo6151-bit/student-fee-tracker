@@ -478,7 +478,7 @@
                     </div>
                     <div style="font-size: 1.5em;">👤</div>
                 </div>
-                <button class="logout-btn" onclick="logout()">
+                <button class="logout-btn" id="logoutBtn">
                     🚪 Logout
                 </button>
             </div>
@@ -505,9 +505,9 @@
 
         <div class="main-content">
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('students')">Students</button>
-                <button class="tab" onclick="switchTab('payments')">Payments</button>
-                <button class="tab" onclick="switchTab('feeStructures')">Fee Structures</button>
+                <button class="tab active" data-tab="students">Students</button>
+                <button class="tab" data-tab="payments">Payments</button>
+                <button class="tab" data-tab="feeStructures">Fee Structures</button>
             </div>
 
             <div id="studentsTab" class="tab-content active">
@@ -876,21 +876,89 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Check authentication first
             const currentUser = checkAuth();
-            
-            if (currentUser) {
-                // Display user info
-                displayUserInfo(currentUser);
-                
-                // Start inactivity timer
-                resetInactivityTimer();
-                
-                // Load data
-                loadDashboard();
-                loadStudents();
-                loadPayments();
-				loadFeeStructures();
-                setInterval(checkAPIStatus, 5000);
-            }
+            if (!currentUser) return;
+
+            // Display user info
+            displayUserInfo(currentUser);
+
+            // Start inactivity timer
+            resetInactivityTimer();
+
+            // Load data
+            loadDashboard();
+            loadStudents();
+            loadPayments();
+			loadFeeStructures();
+            setInterval(checkAPIStatus, 5000);
+
+            /* Attach Events */
+
+            // Logout
+            document.getElementById('logoutBtn')
+            ?.addEventListener('click', logout);
+
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function () {
+                const tabName = this.dataset.tab;
+
+            document.querySelectorAll('.tab')
+                .forEach(t => t.classList.remove('active'));
+
+            document.querySelectorAll('.tab-content')
+                .forEach(c => c.classList.remove('active'));
+
+            this.classList.add('active');
+            document.getElementById(tabName + 'Tab')
+                .classList.add('active');
+            });
+        });
+
+            // Forms
+            document.getElementById('addStudentForm')
+                ?.addEventListener('submit', addStudent);
+
+            document.getElementById('addPaymentForm')
+                ?.addEventListener('submit', addPayment);
+
+            document.getElementById('feeStructureForm')
+                ?.addEventListener('submit', saveFeeStructure);
+
+            // Search
+            document.getElementById('searchStudent')
+                ?.addEventListener('keyup', filterStudents);
+
+            // Filters
+            document.getElementById('filterStatus')
+                ?.addEventListener('change', filterStudents);
+
+            document.getElementById('filterPaymentStudent')
+                ?.addEventListener('change', loadPayments);
+
+            document.getElementById('filterAcademicYear')
+                ?.addEventListener('change', loadFeeStructures);
+
+            document.getElementById('isActive')
+                ?.addEventListener('change', loadFeeStructures);
+
+            document.getElementById('paymentStudentSelect')
+                ?.addEventListener('change', updateBalanceDisplay);
+
+            // Fee calculation inputs
+    [
+        'tuitionFee','admissionFee','examFee','libraryFee',
+        'sportsFee','labFee','transportFee','otherFees'
+    ].forEach(id => {
+        document.getElementById(id)
+            ?.addEventListener('input', calculateTotal);
+    });
+
+            // Modal outside click
+            window.addEventListener('click', function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.classList.remove('active');
+                }
+            });
         });
 
         // Check API Status
@@ -1359,18 +1427,6 @@
             }
         }
 
-        // Tab Switching
-        function switchTab(tabName) {
-            const tabs = document.querySelectorAll('.tab');
-            const contents = document.querySelectorAll('.tab-content');
-            
-            tabs.forEach(tab => tab.classList.remove('active'));
-            contents.forEach(content => content.classList.remove('active'));
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
-        }
-
         // Modal Functions
         function openAddStudentModal() {
             document.getElementById('addStudentModal').classList.add('active');
@@ -1383,13 +1439,6 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
-        }
-
-        // Close modal on outside click
-        window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.classList.remove('active');
-            }
         }
     </script>
 </body>
