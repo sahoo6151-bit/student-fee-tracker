@@ -17,7 +17,10 @@ const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: true,  // Allow same-origin requests
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
