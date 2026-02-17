@@ -1035,7 +1035,7 @@ app.post('/api/payments', asyncHandler(async (req, res) => {
         student_id, amount, payment_date, payment_method, receipt_number,
         transaction_id, cheque_number, bank_name, remarks,
         received_by, academic_year
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const paymentParams = [
