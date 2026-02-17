@@ -1072,7 +1072,7 @@ app.post('/api/payments', asyncHandler(async (req, res) => {
     await connection.query(`
         UPDATE students 
         SET status = CASE 
-            WHEN (total_fees - paid_amount) <= 0 THEN 'paid'
+            WHEN (total_fee - paid_amount) <= 0 THEN 'paid'
             WHEN paid_amount > 0 THEN 'partial'
             ELSE 'pending'
         END
