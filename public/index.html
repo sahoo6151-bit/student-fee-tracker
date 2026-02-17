@@ -628,7 +628,7 @@
                 </div>
                 <div class="form-group">
                     <label>Class *</label>
-                    <input type="text" name="class" required placeholder="e.g., 10-A" onchange="fetchFeeStructure()">
+                    <input type="text" name="class" id="studentClass" required placeholder="e.g., 10-A" onchange="fetchFeeStructure()">
                 </div>
                 <div class="form-group">
                     <label>Academic Year *</label>
@@ -1053,7 +1053,8 @@
                 name: formData.get('name'),
                 email: formData.get('email'),
                 class: formData.get('class'),
-                totalFee: parseFloat(formData.get('totalFee'))
+                totalFee: parseFloat(formData.get('totalFee')),
+                academicYear: formData.get('academicYear')
             };
 
             try {
