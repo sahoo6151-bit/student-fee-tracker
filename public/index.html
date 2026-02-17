@@ -628,11 +628,25 @@
                 </div>
                 <div class="form-group">
                     <label>Class *</label>
-                    <input type="text" name="class" required placeholder="e.g., 10-A">
+                    <input type="text" name="class" required placeholder="e.g., 10-A" onchange="fetchFeeStructure()">
+                </div>
+                <div class="form-group">
+                    <label>Academic Year *</label>
+                    <select name="academicYear" id="studentAcademicYear" required onchange="fetchFeeStructure()">
+                        <option value="">Select academic year</option>
+                        <option value="2025-2026" selected>2025-2026</option>
+                        <option value="2026-2027">2026-2027</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Total Fee (₹) *</label>
-                    <input type="number" name="totalFee" required min="0">
+                    <input type="number" name="totalFee" id="studentTotalFee" required min="0">
+                    <small id="feeStructureInfo" style="color: #667eea; display: none; margin-top: 4px;">
+                        📋 Fee structure loaded
+                    </small>
+                    <small id="feeStructureError" style="color: #f59e0b; display: none; margin-top: 4px;">
+                        ⚠️ No fee structure found for this class
+                    </small>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn" onclick="closeModal('addStudentModal')">Cancel</button>
@@ -718,7 +732,6 @@
                     <div class="form-group">
                         <label for="academicYear">Academic Year *</label>
                         <select id="academicYear" name="academicYear" required>
-                            <option value="2024-2025">2024-2025</option>
                             <option value="2025-2026" selected>2025-2026</option>
                             <option value="2026-2027">2026-2027</option>
                         </select>
@@ -987,6 +1000,49 @@
             });
 
             displayStudents(filtered);
+        }
+
+        // Fetch Fee Structure based on Class and Academic Year
+        async function fetchFeeStructure() {
+            const classInput = document.getElementById('studentClass');
+            const academicYearSelect = document.getElementById('studentAcademicYear');
+            const feeInput = document.getElementById('studentTotalFee');
+            const feeInfo = document.getElementById('feeStructureInfo');
+            const feeError = document.getElementById('feeStructureError');
+            
+            const studentClass = classInput.value.trim();
+            const academicYear = academicYearSelect.value;
+            
+            // Hide messages
+            feeInfo.style.display = 'none';
+            feeError.style.display = 'none';
+            
+            if (!studentClass || !academicYear) {
+                return; // Need both class and year
+            }
+            
+            try {
+                // Extract numeric class (e.g., "10-A" -> "10", "5" -> "5")
+                const classNumber = studentClass.split('-')[0].trim();
+                
+                const response = await fetch(`${API_URL}/fee-structures/class/${classNumber}/year/${academicYear}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // Auto-fill the total fee
+                    feeInput.value = result.data.total_fee || 0;
+                    feeInfo.style.display = 'block';
+                    feeInfo.textContent = `📋 Fee structure loaded: ₹${(result.data.total_fee || 0).toLocaleString()}`;
+                } else {
+                    // No fee structure found
+                    feeError.style.display = 'block';
+                    feeError.textContent = '⚠️ No fee structure found. Please enter fee manually.';
+                }
+            } catch (error) {
+                console.error('Error fetching fee structure:', error);
+                feeError.style.display = 'block';
+                feeError.textContent = '⚠️ Could not load fee structure. Please enter fee manually.';
+            }
         }
 
         // Add Student
