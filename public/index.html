@@ -4,463 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Fee Tracking System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        header {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .header-left {
-            flex: 1;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 10px 20px;
-            background: #f3f4f6;
-            border-radius: 8px;
-        }
-
-        .user-details {
-            text-align: right;
-        }
-
-        .user-name {
-            font-weight: 600;
-            color: #1f2937;
-            font-size: 0.95em;
-        }
-
-        .user-role {
-            font-size: 0.8em;
-            color: #6b7280;
-            text-transform: capitalize;
-        }
-
-        .logout-btn {
-            padding: 10px 20px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 0.9em;
-        }
-
-        .logout-btn:hover {
-            background: #dc2626;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-        }
-
-        h1 {
-            color: #667eea;
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .api-status {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: bold;
-        }
-
-        .api-status.connected {
-            background: #10b981;
-            color: white;
-        }
-
-        .api-status.disconnected {
-            background: #ef4444;
-            color: white;
-        }
-
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .stat-card h3 {
-            color: #6b7280;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
-        .stat-card .value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #1f2937;
-        }
-
-        .stat-card.primary .value {
-            color: #667eea;
-        }
-
-        .stat-card.success .value {
-            color: #10b981;
-        }
-
-        .stat-card.warning .value {
-            color: #f59e0b;
-        }
-
-        .stat-card.danger .value {
-            color: #ef4444;
-        }
-
-        .main-content {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .tabs {
-            display: flex;
-            background: #f3f4f6;
-            border-bottom: 2px solid #e5e7eb;
-        }
-
-        .tab {
-            padding: 15px 30px;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 1em;
-            font-weight: 600;
-            color: #6b7280;
-            transition: all 0.3s;
-        }
-
-        .tab.active {
-            background: white;
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
-        }
-
-        .tab:hover {
-            background: #e5e7eb;
-        }
-
-        .tab-content {
-            display: none;
-            padding: 30px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 250px;
-        }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="number"],
-        input[type="date"],
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #059669;
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 0.85em;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        th {
-            background: #f9fafb;
-            font-weight: 600;
-            color: #374151;
-            text-transform: uppercase;
-            font-size: 0.85em;
-        }
-
-        tr:hover {
-            background: #f9fafb;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: 600;
-        }
-
-        .badge.paid {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge.partial {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .badge.pending {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-		
-		.badge.active {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge.inactive {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            margin-bottom: 20px;
-        }
-
-        .modal-header h2 {
-            color: #1f2937;
-            margin-bottom: 5px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 25px;
-        }
-
-        .form-actions button {
-            flex: 1;
-        }
-
-        .currency {
-            font-weight: 600;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6b7280;
-        }
-
-        .empty-state svg {
-            width: 100px;
-            height: 100px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-		
-        .fee-breakdown {
-            background: #f9fafb;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .fee-breakdown h3 {
-            color: #374151;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-		
-        .total-fee {
-            background: #667eea;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-			margin-bottom: 20px;
-        }
-
-        .total-fee .label {
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .total-fee .amount {
-            font-size: 1.5em;
-            font-weight: 700;
-        }
-
-        @media (max-width: 768px) {
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
-
-            .toolbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            table {
-                font-size: 0.85em;
-            }
-
-            th, td {
-                padding: 10px;
-            }
-        }
-		
-    </style>
+    <link rel="stylesheet" href="main-style.css">
 </head>
 <body>
     <div class="container">
@@ -523,6 +67,7 @@
                     <button class="btn btn-primary" onclick="openAddStudentModal()">+ Add Student</button>
                 </div>
 
+                <!-- Desktop Table View -->
                 <table id="studentsTable">
                     <thead>
                         <tr>
@@ -539,6 +84,9 @@
                     <tbody id="studentsTableBody">
                     </tbody>
                 </table>
+
+                <!-- Mobile Card View (ADD THIS) -->
+                <div class="mobile-student-list" id="mobileStudentList"></div>
             </div>
 
             <div id="paymentsTab" class="tab-content">
@@ -549,6 +97,7 @@
                     <button class="btn btn-success" onclick="openAddPaymentModal()">+ Record Payment</button>
                 </div>
 
+                <!-- Desktop Table View -->
                 <table id="paymentsTable">
                     <thead>
                         <tr>
@@ -562,6 +111,9 @@
                     <tbody id="paymentsTableBody">
                     </tbody>
                 </table>
+
+                <!-- Mobile Card View (ADD THIS LINE) -->
+                <div class="mobile-payment-list" id="mobilePaymentList"></div>
             </div>
 			
 			<div id="feeStructuresTab" class="tab-content">
@@ -946,6 +498,7 @@
                 if (result.success) {
                     studentsData = result.data;
                     displayStudents(studentsData);
+                    displayStudentsMobile(studentsData);
                     updatePaymentStudentDropdowns();
                 }
             } catch (error) {
@@ -985,6 +538,72 @@
                 </tr>
             `).join('');
         }
+
+        // Display students in mobile card format
+        function displayStudentsMobile(students) {
+		const container = document.getElementById('mobileStudentList');
+		if (!container) return;
+		
+		if (students.length === 0) {
+			container.innerHTML = `
+				<div style="text-align: center; padding: 40px; color: #6b7280;">
+					<div style="font-size: 48px; margin-bottom: 16px;">📚</div>
+					<div style="font-size: 16px; font-weight: 600;">No students found</div>
+				</div>
+			`;
+			return;
+		}
+		
+		container.innerHTML = students.map(student => {
+			const statusClass = student.status || 'pending';
+			
+			return `
+				<div class="student-card">
+					<div class="student-card-header">
+						<div>
+							<div class="student-card-name">${student.name}</div>
+							<div class="student-card-id">ID: ${student.student_id || student.id}</div>
+						</div>
+						<div class="student-card-status ${statusClass}">
+							${statusClass}
+						</div>
+					</div>
+					
+					<div class="student-card-info">
+						<div class="student-card-info-item">
+							<div class="student-card-info-label">Class</div>
+							<div class="student-card-info-value">${student.class}</div>
+						</div>
+						<div class="student-card-info-item">
+							<div class="student-card-info-label">Total Fee</div>
+							<div class="student-card-info-value">₹${parseFloat(student.total_fee || 0).toLocaleString()}</div>
+						</div>
+						<div class="student-card-info-item">
+							<div class="student-card-info-label">Paid</div>
+							<div class="student-card-info-value" style="color: #10b981;">
+								₹${parseFloat(student.paid_amount || 0).toLocaleString()}
+							</div>
+						</div>
+						<div class="student-card-info-item">
+							<div class="student-card-info-label">Balance</div>
+							<div class="student-card-info-value" style="color: #ef4444;">
+								₹${parseFloat(student.balance || 0).toLocaleString()}
+							</div>
+						</div>
+					</div>
+					
+					<div class="student-card-actions">
+						<button class="btn-success" onclick="openPaymentForStudent(${student.id})" ${student.balance === 0 ? 'disabled' : ''}>
+							💰 Pay
+						</button>
+						<button class="btn-danger" onclick="deleteStudent(${student.id})">
+							🗑️ Delete
+						</button>
+					</div>
+				</div>
+			`;
+		}).join('');
+	}
 
         // Filter Students
         function filterStudents() {
@@ -1112,6 +731,7 @@
                 if (result.success) {
                     paymentsData = result.data;
                     displayPayments(paymentsData);
+                    displayPaymentsMobile(paymentsData);
                 }
             } catch (error) {
                 console.error('Error loading payments:', error);
@@ -1146,6 +766,75 @@
                 `;
             }).join('');
         }
+
+        // Display payments in mobile card format
+	    function displayPaymentsMobile(payments) {
+		const container = document.getElementById('mobilePaymentList');
+		if (!container) return;
+		
+		if (payments.length === 0) {
+			container.innerHTML = `
+				<div style="text-align: center; padding: 40px; color: #6b7280;">
+					<div style="font-size: 48px; margin-bottom: 16px;">💳</div>
+					<div style="font-size: 16px; font-weight: 600;">No payments found</div>
+					<div style="font-size: 14px; margin-top: 8px;">Record a payment to see it here</div>
+				</div>
+			`;
+			return;
+		}
+		
+		container.innerHTML = payments.map(payment => {
+			// Format date
+			const paymentDate = new Date(payment.payment_date);
+			const formattedDate = paymentDate.toLocaleDateString('en-IN', {
+				day: '2-digit',
+				month: 'short',
+				year: 'numeric'
+			});
+			
+			// Get payment method
+			const method = (payment.payment_method || 'cash').toLowerCase().replace(' ', '_');
+			const methodDisplay = (payment.payment_method || 'CASH').toUpperCase();
+			
+			// Get student name
+			const studentName = payment.student_name || payment.studentName || 'Unknown Student';
+			
+			return `
+				<div class="payment-card">
+					<div class="payment-card-header">
+						<div>
+							<div class="payment-card-receipt">#${payment.receipt_number || payment.id}</div>
+							<div class="payment-card-student">${studentName}</div>
+						</div>
+						<div class="payment-card-amount">
+							₹${parseFloat(payment.amount || 0).toLocaleString('en-IN')}
+						</div>
+					</div>
+					
+					<div class="payment-card-info">
+						<div class="payment-card-info-item">
+							<div class="payment-card-info-label">Payment Date</div>
+							<div class="payment-card-info-value">${formattedDate}</div>
+						</div>
+						<div class="payment-card-info-item">
+							<div class="payment-card-info-label">Payment Method</div>
+							<div class="payment-card-info-value">
+								<span class="payment-card-method ${method}">${methodDisplay}</span>
+							</div>
+						</div>
+					</div>
+					
+					${payment.transaction_id ? `
+					<div class="payment-card-footer">
+						<div class="payment-card-date">
+							<strong>Transaction ID:</strong> ${payment.transaction_id}
+						</div>
+					</div>
+					` : ''}
+				</div>
+			`;
+		}).join('');
+	}
 
         // Add Payment
         async function addPayment(event) {
