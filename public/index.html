@@ -467,7 +467,6 @@
         <header>
             <div class="header-left">
                 <h1>🎓 Student Fee Tracking System</h1>
-                <p>API-Driven Fee Management</p>
                 <span class="api-status" id="apiStatus">Connecting...</span>
             </div>
             <div class="header-right" id="userInfoSection" style="display: none;">
@@ -620,11 +619,11 @@
             <form id="addStudentForm" onsubmit="addStudent(event)">
                 <div class="form-group">
                     <label>Name *</label>
-                    <input type="text" name="name" required>
+                    <input type="text" name="name" pattern="[a-zA-Z ]+" required>
                 </div>
                 <div class="form-group">
                     <label>Email *</label>
-                    <input type="email" name="email" required>
+                    <input type="email" name="email" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
                 </div>
                 <div class="form-group">
                     <label>Class *</label>
@@ -640,7 +639,7 @@
                 </div>
                 <div class="form-group">
                     <label>Total Fee (₹) *</label>
-                    <input type="number" name="totalFee" id="studentTotalFee" required min="0">
+                    <input type="number" name="totalFee" id="studentTotalFee" required min="0" style="background-color: #e9e9e9; color: #888888; cursor: not-allowed; pointer-events: none;">
                     <small id="feeStructureInfo" style="color: #667eea; display: none; margin-top: 4px;">
                         📋 Fee structure loaded
                     </small>
@@ -911,11 +910,11 @@
             try {
                 const response = await fetch(`${API_URL}/statistics`);
                 if (response.ok) {
-                    document.getElementById('apiStatus').textContent = 'API Connected';
+                    document.getElementById('apiStatus').textContent = 'Status: Connected';
                     document.getElementById('apiStatus').className = 'api-status connected';
                 }
             } catch (error) {
-                document.getElementById('apiStatus').textContent = 'API Disconnected';
+                document.getElementById('apiStatus').textContent = 'Status: Disconnected';
                 document.getElementById('apiStatus').className = 'api-status disconnected';
             }
         }
@@ -1380,7 +1379,7 @@
 
                 if (result.success) {
                     alert(id ? 'Fee structure updated successfully!' : 'Fee structure created successfully!');
-                    closeModal();
+                    closeModal('feeStructureModal');
                     loadFeeStructures();
                 } else {
                     alert(result.message || 'Failed to save fee structure');
