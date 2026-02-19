@@ -138,6 +138,7 @@
                 <p>💡 Fee structures define the standard fees for each class. Students can have individual adjustments through discounts.</p>
             </div>
 
+            <!-- Desktop Table View -->
             <table id="feeStructuresTable">
                 <thead>
                     <tr>
@@ -158,6 +159,9 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Mobile Card View (ADD THIS) -->
+            <div class="mobile-fee-list" id="mobileFeeList"></div>
 			</div>
         </div>
     </div>
@@ -913,7 +917,7 @@
             updateBalanceDisplay();
         }
 		
-		        // Load fee structures
+		// Load fee structures
         async function loadFeeStructures() {
             const academicYear = document.getElementById('filterAcademicYear').value;
             const isActive = document.getElementById('filterStatus').value;
@@ -929,6 +933,7 @@
                 if (result.success) {
                     feeStructuresData = result.data;
                     displayFeeStructures(feeStructuresData);
+                    displayFeeStructuresMobile(feeStructuresData);
                 }
             } catch (error) {
                 console.error('Error loading fee structures:', error);
@@ -985,6 +990,150 @@
                 `;
             }).join('');
         }
+
+    // Toggle fee details expansion
+	function toggleFeeDetails(index) {
+		const details = document.getElementById(`fee-details-${index}`);
+		const icon = document.getElementById(`expand-icon-${index}`);
+		
+		if (details.classList.contains('expanded')) {
+			details.classList.remove('expanded');
+			icon.classList.remove('rotated');
+		} else {
+			details.classList.add('expanded');
+			icon.classList.add('rotated');
+		}
+	}
+	
+	// Display fee structures in mobile card format
+	function displayFeeStructuresMobile(feeStructures) {
+		const container = document.getElementById('mobileFeeList');
+		if (!container) return;
+		
+		if (feeStructures.length === 0) {
+			container.innerHTML = `
+				<div style="text-align: center; padding: 40px; color: #6b7280;">
+					<div style="font-size: 48px; margin-bottom: 16px;">💰</div>
+					<div style="font-size: 16px; font-weight: 600;">No fee structures found</div>
+					<div style="font-size: 14px; margin-top: 8px;">Add a fee structure to get started</div>
+				</div>
+			`;
+			return;
+		}
+		
+		container.innerHTML = feeStructures.map((fee, index) => {
+			const isActive = fee.is_active || fee.isActive;
+			const statusClass = isActive ? 'active' : 'inactive';
+			const statusText = isActive ? 'ACTIVE' : 'INACTIVE';
+			
+			// Calculate other fees total
+			const otherFees = 
+				(parseFloat(fee.admission_fee) || 0) +
+				(parseFloat(fee.exam_fee) || 0) +
+				(parseFloat(fee.library_fee) || 0) +
+				(parseFloat(fee.sports_fee) || 0) +
+				(parseFloat(fee.lab_fee) || 0) +
+				(parseFloat(fee.transport_fee) || 0) +
+				(parseFloat(fee.other_fees) || 0);
+			
+			const totalFee = parseFloat(fee.total_fee) || 0;
+			const tuitionFee = parseFloat(fee.tuition_fee) || 0;
+			
+			return `
+				<div class="fee-structure-card">
+					<div class="fee-card-header" onclick="toggleFeeDetails(${index})">
+						<div style="flex: 1;">
+							<div class="fee-card-class">Class ${fee.class}</div>
+							<div class="fee-card-year">📅 ${fee.academic_year}</div>
+							<span class="fee-card-status ${statusClass}">${statusText}</span>
+						</div>
+						<div class="fee-card-total">
+							<div class="fee-card-total-label">Total Fee</div>
+							<div class="fee-card-total-amount">₹${totalFee.toLocaleString('en-IN')}</div>
+						</div>
+						<div style="padding-left: 12px;">
+							<span class="expand-icon" id="expand-icon-${index}">▼</span>
+						</div>
+					</div>
+					
+					<!-- Expandable Details -->
+					<div class="fee-card-details" id="fee-details-${index}">
+						<div class="fee-breakdown-mobile">
+							<div class="fee-breakdown-title">Fee Breakdown</div>
+							
+							<div class="fee-item">
+								<span class="fee-item-label">Tuition Fee</span>
+								<span class="fee-item-value">₹${tuitionFee.toLocaleString('en-IN')}</span>
+							</div>
+							
+							${fee.admission_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Admission Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.admission_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.exam_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Exam Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.exam_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.library_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Library Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.library_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.sports_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Sports Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.sports_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.lab_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Lab Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.lab_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.transport_fee ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Transport Fee</span>
+								<span class="fee-item-value">₹${parseFloat(fee.transport_fee).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							${fee.other_fees ? `
+							<div class="fee-item">
+								<span class="fee-item-label">Other Fees</span>
+								<span class="fee-item-value">₹${parseFloat(fee.other_fees).toLocaleString('en-IN')}</span>
+							</div>
+							` : ''}
+							
+							<div class="fee-item" style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #667eea;">
+								<span class="fee-item-label" style="font-weight: 700; color: #1f2937;">TOTAL</span>
+								<span class="fee-item-value highlight">₹${totalFee.toLocaleString('en-IN')}</span>
+							</div>
+						</div>
+						
+						<div class="fee-card-actions">
+							<button class="btn btn-primary btn-small" onclick="editFeeStructure(${fee.id})">
+								✏️ Edit
+							</button>
+							<button class="btn btn-danger btn-small" onclick="deleteFeeStructure(${fee.id})">
+								🗑️ Delete
+							</button>
+						</div>
+					</div>
+				</div>
+			`;
+		}).join('');
+	}
 
         // Calculate total fee
         function calculateTotal() {
