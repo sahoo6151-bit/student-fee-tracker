@@ -179,7 +179,7 @@
                 </div>
                 <div class="form-group">
                     <label>Email *</label>
-                    <input type="email" name="email" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                    <input type="email" name="email" pattern="^[a-zA-Z0-9._%+ \-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" required>
                 </div>
                 <div class="form-group">
                     <label>Class *</label>
@@ -212,46 +212,83 @@
     </div>
 
     <!-- Add Payment Modal -->
-    <div id="addPaymentModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Record Payment</h2>
-            </div>
-            <form id="addPaymentForm" onsubmit="addPayment(event)">
-                <div class="form-group">
-                    <label>Student *</label>
-                    <select name="studentId" id="paymentStudentSelect" required onchange="updateBalanceDisplay()">
-                        <option value="">Select student</option>
-                    </select>
-                </div>
-                <div class="form-group" id="balanceDisplay" style="display:none;">
-                    <label>Current Balance</label>
-                    <div style="font-size: 1.2em; font-weight: bold; color: #667eea;" id="balanceAmount"></div>
-                </div>
-                <div class="form-group">
-                    <label>Amount (₹) *</label>
-                    <input type="number" name="amount" required min="1">
-                </div>
-                <div class="form-group">
-                    <label>Date *</label>
-                    <input type="date" name="date" required>
-                </div>
-                <div class="form-group">
-                    <label>Payment Method *</label>
-                    <select name="method" required>
-                        <option value="cash">Cash</option>
-                        <option value="online">Online Transfer</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="card">Card</option>
-                    </select>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn" onclick="closeModal('addPaymentModal')">Cancel</button>
-                    <button type="submit" class="btn btn-success">Record Payment</button>
-                </div>
-            </form>
+	<div id="addPaymentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Record Payment</h2>
         </div>
+        <form id="addPaymentForm" onsubmit="addPayment(event)">
+            <div class="form-group">
+                <label>Student *</label>
+                <select name="studentId" id="paymentStudentSelect" required onchange="updateBalanceDisplay()">
+                    <option value="">Select student</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="balanceDisplay" style="display:none;">
+                <label>Current Balance</label>
+                <div style="font-size: 1.2em; font-weight: bold; color: #667eea;" id="balanceAmount"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Amount (₹) *</label>
+                <input type="number" name="amount" id="paymentAmount" required min="1">
+            </div>
+            
+            <div class="form-group">
+                <label>Date *</label>
+                <input type="date" name="date" id="paymentDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Payment Method *</label>
+                <select name="method" id="paymentMethod" required onchange="handlePaymentMethodChange()">
+                    <option value="">Select payment method</option>
+                    <option value="cash">Cash</option>
+                    <option value="online">Online Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                    <option value="cheque">Cheque</option>
+                </select>
+            </div>
+            
+            <!-- Transaction ID Field (for Online, UPI, Card) -->
+            <div class="form-group" id="transactionIdField" style="display: none;">
+                <label>Transaction ID *</label>
+                <input type="text" name="transactionId" id="transactionId" placeholder="Enter transaction/reference ID">
+                <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 4px;">
+                    💡 Enter the transaction or reference number
+                </small>
+            </div>
+            
+            <!-- Cheque Fields (for Cheque) -->
+            <div id="chequeFields" style="display: none;">
+                <div class="form-group">
+                    <label>Cheque Number *</label>
+                    <input type="text" name="chequeNumber" id="chequeNumber" placeholder="Enter cheque number">
+                </div>
+                
+                <div class="form-group">
+                    <label>Bank Name *</label>
+                    <input type="text" name="bankName" id="bankName" placeholder="Enter bank name">
+                </div>
+            </div>
+            
+            <!-- Remarks (Optional for all) -->
+            <div class="form-group">
+                <label>Remarks (Optional)</label>
+                <textarea name="remarks" id="paymentRemarks" rows="2" 
+                          placeholder="Add any notes or remarks"
+                          style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-family: inherit; resize: vertical;"></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn" onclick="closeModal('addPaymentModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">Record Payment</button>
+            </div>
+        </form>
     </div>
+</div>
 	
     <!-- Add/Edit Fee Structure Modal -->
     <div id="feeStructureModal" class="modal">
@@ -839,6 +876,44 @@
 			`;
 		}).join('');
 	}
+	
+	// Show/hide fields based on payment method selection
+    function handlePaymentMethodChange() {
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const transactionIdField = document.getElementById('transactionIdField');
+    const chequeFields = document.getElementById('chequeFields');
+    const transactionIdInput = document.getElementById('transactionId');
+    const chequeNumberInput = document.getElementById('chequeNumber');
+    const bankNameInput = document.getElementById('bankName');
+    
+    // Hide all conditional fields first
+    transactionIdField.style.display = 'none';
+    chequeFields.style.display = 'none';
+    
+    // Remove required attributes
+    transactionIdInput.removeAttribute('required');
+    chequeNumberInput.removeAttribute('required');
+    bankNameInput.removeAttribute('required');
+    
+    // Clear values when switching methods
+    transactionIdInput.value = '';
+    chequeNumberInput.value = '';
+    bankNameInput.value = '';
+    
+    // Show relevant fields based on payment method
+    if (paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'card') {
+        // Show transaction ID field for online/digital payments
+        transactionIdField.style.display = 'block';
+        transactionIdInput.setAttribute('required', 'required');
+    } 
+    else if (paymentMethod === 'cheque') {
+        // Show cheque-specific fields
+        chequeFields.style.display = 'block';
+        chequeNumberInput.setAttribute('required', 'required');
+        bankNameInput.setAttribute('required', 'required');
+    }
+    // For 'cash', no additional fields needed
+}
 
         // Add Payment
         async function addPayment(event) {
@@ -847,9 +922,23 @@
             const data = {
                 studentId: parseInt(formData.get('studentId')),
                 amount: parseFloat(formData.get('amount')),
-                date: formData.get('date'),
-                paymentMethod: formData.get('method')
+                paymentDate: formData.get('date'),
+                paymentMethod: formData.get('method'),
+				remarks: formData.get('remarks') || ''
             };
+			
+			// Add conditional fields based on payment method
+            const paymentMethod = formData.get('method');
+    
+            if (paymentMethod === 'online' || paymentMethod === 'upi' || paymentMethod === 'card') {
+                // Add transaction ID for digital payments
+                data.transactionId = formData.get('transactionId') || '';
+            } 
+            else if (paymentMethod === 'cheque') {
+                // Add cheque-specific details
+                data.chequeNumber = formData.get('chequeNumber') || '';
+                data.bankName = formData.get('bankName') || '';
+            }
 
             try {
                 const response = await fetch(`${API_URL}/payments`, {
@@ -863,6 +952,11 @@
                 if (result.success) {
                     closeModal('addPaymentModal');
                     event.target.reset();
+					
+					// Reset conditional fields visibility
+                    document.getElementById('transactionIdField').style.display = 'none';
+                    document.getElementById('chequeFields').style.display = 'none';
+					
                     loadStudents();
                     loadPayments();
                     loadDashboard();
@@ -1277,6 +1371,36 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
+			
+			// Reset student modal fields when closing
+            if(modalId === 'addStudentModal') {
+                const form = document.getElementById('addStudentForm');
+                if(form) {
+                    form.reset();
+                }
+            }
+    
+            // Reset payment modal fields when closing
+            if (modalId === 'addPaymentModal') {
+                const form = document.getElementById('addPaymentForm');
+                if (form) {
+                    form.reset();
+                    // Hide conditional fields
+                    document.getElementById('transactionIdField').style.display = 'none';
+                    document.getElementById('chequeFields').style.display = 'none';
+                    // Hide balance display
+                    document.getElementById('balanceDisplay').style.display = 'none';
+                }
+            }
+
+            // Reset fee-structure modal fields when closing
+            if(modalId === 'feeStructureModal') {
+                const form = document.getElementById('feeStructureForm');
+                if(form) {
+                    form.reset();
+                }
+            }
+			
         }
 
         // Close modal on outside click
