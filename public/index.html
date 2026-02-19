@@ -1255,9 +1255,24 @@
 
         // Edit fee structure
         async function editFeeStructure(id) {
-            const fee = feeStructuresData.find(f => f.id === id);
-            if (!fee) return;
+            try {
+        // First check if fee structure is in use
+        const usageResponse = await fetch(`${API_URL}/fee-structures/${id}/usage`);
+        const usageResult = await usageResponse.json();
+        
+        if (usageResult.success && usageResult.data.isInUse) {
+            alert(`❌ Cannot Edit Fee Structure\n\nThis fee structure is currently being used by ${usageResult.data.studentCount} student(s) in Class ${usageResult.data.class} (${usageResult.data.academicYear}).`);
+            return;
+        }
+        
+        // If not in use, proceed with edit
+        const response = await fetch(`${API_URL}/fee-structures/${id}`);
+        const result = await response.json();
 
+        if (result.success) {
+            const fee = result.data;
+            
+            // Populate form
             document.getElementById('modalTitle').textContent = 'Edit Fee Structure';
             document.getElementById('feeStructureId').value = fee.id;
             document.getElementById('class').value = fee.class;
@@ -1274,6 +1289,11 @@
 
             calculateTotal();
             document.getElementById('feeStructureModal').classList.add('active');
+        }
+    } 		catch (error) {
+				console.error('Error loading fee structure:', error);
+				alert('Failed to load fee structure');
+			}
         }
 
         // Save fee structure

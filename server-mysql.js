@@ -1298,6 +1298,48 @@ app.get('/api/fee-structures/class/:class/year/:year', asyncHandler(async (req, 
   });
 }));
 
+// Check if fee structure is being used by any students
+app.get('/api/fee-structures/:id/usage', asyncHandler(async (req, res) => {
+  const feeStructureId = req.params.id;
+  
+  // Get fee structure details
+  const feeQuery = 'SELECT class, academic_year FROM fee_structures WHERE id = ?';
+  const feeResults = await mysqlQuery(feeQuery, [feeStructureId]);
+  
+  if (feeResults.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Fee structure not found'
+    });
+  }
+  
+  const feeStructure = feeResults[0];
+  
+  // Count students using this fee structure (by class and academic year)
+  const countQuery = `
+    SELECT COUNT(*) as student_count
+    FROM students
+    WHERE class = ? AND academic_year = ? AND is_active = true
+  `;
+  
+  const countResults = await mysqlQuery(countQuery, [
+    feeStructure.class,
+    feeStructure.academic_year
+  ]);
+  
+  const studentCount = parseInt(countResults[0].student_count);
+  
+  res.json({
+    success: true,
+    data: {
+      isInUse: studentCount > 0,
+      studentCount: studentCount,
+      class: feeStructure.class,
+      academicYear: feeStructure.academic_year
+    }
+  });
+}));
+
 // Create new fee structure
 app.post('/api/fee-structures', asyncHandler(async (req, res) => {
   const {
