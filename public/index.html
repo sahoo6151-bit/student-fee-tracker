@@ -58,6 +58,11 @@
                     <div class="search-box">
                         <input type="text" id="searchStudent" placeholder="Search by name or class..." onkeyup="filterStudents()">
                     </div>
+					<select id="filterAcademicYear" onchange="filterStudents()">
+					    <option value="">All Years</option>
+					    <option value="2025-2026">2025-2026</option>
+					    <option value="2026-2027">2026-2027</option>
+		            </select>								
                     <select id="filterStatus" onchange="filterStudents()">
                         <option value="">All Status</option>
                         <option value="paid">Paid</option>
@@ -202,6 +207,43 @@
                         ⚠️ No fee structure found for this class
                     </small>
                 </div>
+				<div class="form-group">
+                    <label>Discount Type</label>
+                    <select id="discountType" onchange="toggleDiscountType()">
+                        <option value="amount">Fixed Amount</option>
+                        <option value="percentage">Percentage</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <span id="discountLabel">Discount (₹)</span>
+                    </label>
+                    <input type="number" name="discount" id="studentDiscount" min="0" value="0" 
+                    placeholder="Enter discount" onchange="calculateNetFee()">
+                    <span id="percentageSymbol" style="display: none;">%</span>
+                    <small style="color: #6b7280; font-size: 0.85em; display: block; margin-top: 4px;">
+                    💡 Optional: Enter discount amount/percentage to be deducted from total fee
+                    </small>
+                </div>
+                <div id="netFeeDisplay" style="display: none; margin-bottom: 20px; padding: 15px; 
+                 background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 8px;">
+                    <div style="font-size: 14px; color: #1e40af; margin-bottom: 8px;">
+                    <strong>Fee Calculation:</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #6b7280;">Total Fee:</span>
+                    <span style="font-weight: 600;" id="displayTotalFee">₹0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #6b7280;">Discount:</span>
+                    <span style="font-weight: 600; color: #10b981;" id="displayDiscount">- ₹0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding-top: 8px; 
+                     border-top: 2px solid #3b82f6; margin-top: 8px;">
+                    <span style="font-weight: 700; color: #1e40af;">Net Fee:</span>
+                    <span style="font-weight: 700; font-size: 18px; color: #1e40af;" id="displayNetFee">₹0</span>
+                    </div>
+                </div>			 
                 <div class="form-actions">
                     <button type="button" class="btn" onclick="closeModal('addStudentModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Add Student</button>
@@ -561,14 +603,24 @@
                 return;
             }
 
-            tbody.innerHTML = students.map(student => `
+            tbody.innerHTML = students.map(student => {
+            
+            const totalFee = parseFloat(student.total_fee || 0);
+            const discount = parseFloat(student.discount || 0);
+            const paidAmount = parseFloat(student.paid_amount || 0);
+            const balance = parseFloat(student.balance || 0);
+            const netFee = totalFee - discount;
+
+            return `
                 <tr>
                     <td>${student.id}</td>
                     <td>${student.name}</td>
                     <td>${student.class}</td>
-                    <td class="currency">₹${student.total_fee.toLocaleString()}</td>
-                    <td class="currency">₹${student.paid_amount.toLocaleString()}</td>
-                    <td class="currency">₹${student.balance.toLocaleString()}</td>
+                    <td class="currency">₹${totalFee.toLocaleString('en-IN')}
+                    ${discount > 0 ? `<br><small style="color: #10b981;">- ₹${discount.toLocaleString('en-IN')} discount</small>` : ''}
+                    ${discount > 0 ? `<br><small style="color: #667eea; font-weight: 600;">Net: ₹${netFee.toLocaleString('en-IN')}</small>` : ''}</td>
+                    <td class="currency">₹${paidAmount.toLocaleString()}</td>
+                    <td class="currency">₹${balance.toLocaleString()}</td>
                     <td><span class="badge ${student.status}">${student.status.toUpperCase()}</span></td>
                     <td>
                         <button class="btn btn-success btn-small" onclick="openPaymentForStudent(${student.id})" 
@@ -576,7 +628,7 @@
                         <button class="btn btn-danger btn-small" onclick="deleteStudent(${student.id})">Delete</button>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
         // Display students in mobile card format
@@ -596,6 +648,9 @@
 		
 		container.innerHTML = students.map(student => {
 			const statusClass = student.status || 'pending';
+			const totalFee = parseFloat(student.total_fee || 0);
+            const discount = parseFloat(student.discount || 0);
+            const netFee = totalFee - discount;	
 			
 			return `
 				<div class="student-card">
@@ -616,8 +671,18 @@
 						</div>
 						<div class="student-card-info-item">
 							<div class="student-card-info-label">Total Fee</div>
-							<div class="student-card-info-value">₹${parseFloat(student.total_fee || 0).toLocaleString()}</div>
+							<div class="student-card-info-value">₹${parseFloat(totalFee || 0).toLocaleString()}</div>
 						</div>
+						${discount > 0 ? `
+                        <div class="student-card-info-item">
+                            <div class="student-card-info-label">Discount</div>
+                            <div class="student-card-info-value" style="color:#10b981">- ₹${discount.toLocaleString('en-IN')}</div>
+                        </div>
+                        <div class="student-card-info-item">
+                            <div class="student-card-info-label">Net Fee</div>
+                            <div class="student-card-info-value" style="color:#667eea">₹${netFee.toLocaleString('en-IN')}</div>
+                        </div>
+                    `   : ''}	  
 						<div class="student-card-info-item">
 							<div class="student-card-info-label">Paid</div>
 							<div class="student-card-info-value" style="color: #10b981;">
@@ -649,15 +714,17 @@
         function filterStudents() {
             const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
             const statusFilter = document.getElementById('filterStatus').value;
-
+			const academicYearFilter = document.getElementById('filterAcademicYear').value;														   
             let filtered = studentsData.filter(student => {
                 const matchesSearch = student.name.toLowerCase().includes(searchTerm) || 
                                     student.class.toLowerCase().includes(searchTerm);
                 const matchesStatus = !statusFilter || student.status === statusFilter;
-                return matchesSearch && matchesStatus;
+				const matchesYear = !academicYearFilter || student.academic_year === academicYearFilter;	   
+                return matchesSearch && matchesStatus && matchesYear;
             });
 
             displayStudents(filtered);
+			displayStudentsMobile(filtered);
         }
 
         // Fetch Fee Structure based on Class and Academic Year
@@ -703,15 +770,63 @@
             }
         }
 
+		// Calculate Net Fee (Total Fee - Discount)
+        function calculateNetFee() {
+			const totalFee = parseFloat(document.getElementById('studentTotalFee').value) || 0;
+			const discountValue = parseFloat(document.getElementById('studentDiscount').value) || 0;
+			const discountType = document.getElementById('discountType').value;
+			
+			let discountAmount;
+			
+			if (discountType === 'percentage') {
+				// Calculate percentage
+				if (discountValue > 100) {
+					alert('Percentage cannot exceed 100%');
+					document.getElementById('studentDiscount').value = 100;
+					return;
+				}
+				discountAmount = (totalFee * discountValue) / 100;
+			} else {
+				// Fixed amount
+				discountAmount = discountValue;
+			}
+			
+			// Validate
+			if (discountAmount > totalFee) {
+				alert('Discount cannot exceed total fee!');
+				return;
+			}
+			
+			const netFee = totalFee - discountAmount;
+			
+			// Update display
+			document.getElementById('displayTotalFee').textContent = `₹${totalFee.toLocaleString('en-IN')}`;
+			document.getElementById('displayDiscount').textContent = `- ₹${discountAmount.toLocaleString('en-IN')}`;
+			document.getElementById('displayNetFee').textContent = `₹${netFee.toLocaleString('en-IN')}`;
+			document.getElementById('netFeeDisplay').style.display = 'block';
+			
+			// Store actual discount amount (not percentage)
+			document.getElementById('studentDiscount').setAttribute('data-actual-discount', discountAmount);
+		}
+		
         // Add Student
         async function addStudent(event) {
             event.preventDefault();
             const formData = new FormData(event.target);
+			const totalFee = parseFloat(formData.get('totalFee')) || 0;
+            const discount = parseFloat(formData.get('discount')) || 0;
+
+            // Validate discount
+            if (discount > totalFee) {
+                alert('❌ Discount cannot exceed total fee!');
+                return;
+            }
             const data = {
                 name: formData.get('name'),
                 email: formData.get('email'),
                 class: formData.get('class'),
-                totalFee: parseFloat(formData.get('totalFee')),
+                totalFee: totalFee,
+				discount: discount,				 
                 academicYear: formData.get('academicYear')
             };
 
@@ -727,9 +842,15 @@
                 if (result.success) {
                     closeModal('addStudentModal');
                     event.target.reset();
+					// Reset displays
+                    document.getElementById('netFeeDisplay').style.display = 'none';
+                    document.getElementById('feeStructureInfo').style.display = 'none';
+                    document.getElementById('feeStructureError').style.display = 'none';							  
                     loadStudents();
                     loadDashboard();
                     alert('Student added successfully!');
+				} else {
+                    alert(result.message || 'Failed to add student');
                 }
             } catch (error) {
                 console.error('Error adding student:', error);
@@ -1396,6 +1517,9 @@
                 const form = document.getElementById('addStudentForm');
                 if(form) {
                     form.reset();
+                    document.getElementById('netFeeDisplay').style.display = 'none';
+                    document.getElementById('feeStructureInfo').style.display = 'none';
+                    document.getElementById('feeStructureError').style.display = 'none';
                 }
             }
     
