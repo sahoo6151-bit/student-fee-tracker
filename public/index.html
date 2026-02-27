@@ -128,7 +128,7 @@
                         <option value="2025-2026" selected>2025-2026</option>
                         <option value="2026-2027">2026-2027</option>
                     </select>
-                    <select id="filterStatus" onchange="loadFeeStructures()">
+                    <select id="feeFilterStatus" onchange="loadFeeStructures()">
                         <option value="">All Status</option>
                         <option value="true">Active</option>
                         <option value="false">Inactive</option>
@@ -1134,7 +1134,7 @@
 		// Load fee structures
         async function loadFeeStructures() {
             const academicYear = document.getElementById('filterAcademicYear').value;
-            const isActive = document.getElementById('filterStatus').value;
+            const isActive = document.getElementById('feeFilterStatus').value;
 
             try {
                 let url = `${API_URL}/fee-structures?`;
