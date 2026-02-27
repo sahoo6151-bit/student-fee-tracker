@@ -1246,7 +1246,7 @@ app.get('/api/fee-structures', asyncHandler(async (req, res) => {
     params.push(className);
   }
 
-  if (isActive !== undefined) {
+  if (isActive === 'true' || isActive === 'false') {
     query += ' AND is_active = ?';
     params.push(isActive === 'true' ? 1 : 0);
   }
