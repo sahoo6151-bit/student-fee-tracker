@@ -1139,7 +1139,7 @@
             try {
                 let url = `${API_URL}/fee-structures?`;
                 if (academicYear) url += `academicYear=${academicYear}&`;
-                if (isActive) url += `isActive=${isActive}&`;
+                if (isActive) url += `is_active=${isActive}&`;
 
                 const response = await fetch(url);
                 const result = await response.json();

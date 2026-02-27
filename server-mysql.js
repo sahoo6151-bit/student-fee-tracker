@@ -1231,8 +1231,8 @@ app.get('/api/reports/payment-history', asyncHandler(async (req, res) => {
 
 // Get all fee structures with filtering
 app.get('/api/fee-structures', asyncHandler(async (req, res) => {
-  const { academicYear, class: className, isActive } = req.query;
-  
+  const { academicYear, class: className, is_active } = req.query;
+
   let query = 'SELECT * FROM fee_structures WHERE 1=1';
   const params = [];
 
@@ -1246,9 +1246,9 @@ app.get('/api/fee-structures', asyncHandler(async (req, res) => {
     params.push(className);
   }
 
-  if (isActive === 'true' || isActive === 'false') {
+  if (is_active === 'true' || is_active === 'false') {
     query += ' AND is_active = ?';
-    params.push(isActive === 'true' ? 1 : 0);
+    params.push(is_active === 'true' ? 1 : 0);
   }
 
   query += ' ORDER BY class ASC';
