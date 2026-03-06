@@ -123,7 +123,7 @@
 			
 			<div id="feeStructuresTab" class="tab-content">
 				<div class="toolbar">
-                    <select id="filterAcademicYear" onchange="loadFeeStructures()">
+                    <select id="feeFilterAcademicYear" onchange="loadFeeStructures()">
                         <option value="">All Academic Years</option>
                         <option value="2025-2026" selected>2025-2026</option>
                         <option value="2026-2027">2026-2027</option>
@@ -1133,7 +1133,7 @@
 		
 		// Load fee structures
         async function loadFeeStructures() {
-            const academicYear = document.getElementById('filterAcademicYear').value;
+            const academicYear = document.getElementById('feeFilterAcademicYear').value;
             const isActive = document.getElementById('feeFilterStatus').value;
 
             try {
